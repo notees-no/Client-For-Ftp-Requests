@@ -65,7 +65,9 @@ class FTPClient:
 
     def list_files(self):
         try:
+            self.ftp.set_pasv(False)  # Устанавливаем активный режим
             files = self.ftp.nlst()  # Получаем список файлов и директорий
+            self.file_listbox.delete(0, tk.END)  # Очищаем список перед добавлением новых файлов
             for file in files:
                 self.file_listbox.insert(tk.END, file)
         except Exception as e:
@@ -73,7 +75,10 @@ class FTPClient:
 
     def logout(self):
         if hasattr(self, 'ftp'):
-            self.ftp.quit()  # Закрываем соединение с FTP-сервером
+            try:
+                self.ftp.quit()  # Закрываем соединение с FTP-сервером
+            except Exception as e:
+                print(f"Ошибка при выходе: {e}")
         self.show_login_frame()  # Возвращаемся к форме авторизации
 
     def show_login_frame(self):
@@ -88,7 +93,10 @@ class FTPClient:
 
     def close(self):
         if hasattr(self, 'ftp'):
-            self.ftp.quit()
+            try:
+                self.ftp.quit()
+            except Exception as e:
+                print(f"Ошибка при выходе: {e}")
         self.master.destroy()
 
 if __name__ == "__main__":
