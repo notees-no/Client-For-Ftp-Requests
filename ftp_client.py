@@ -1,29 +1,34 @@
 import tkinter as tk
-from tkinter import messagebox, Listbox, Scrollbar
+from tkinter import messagebox, Listbox, Scrollbar, Text, Toplevel, Frame, Button, ttk
 from ftplib import FTP_TLS
+import os
 
 class FTPClient:
     def __init__(self, master):
         self.master = master
         self.master.title("FTP Client")
+        self.master.geometry("600x400")
 
         # Первая форма - авторизация
-        self.login_frame = tk.Frame(self.master)
+        self.login_frame = Frame(self.master)
         self.login_frame.pack(padx=10, pady=10)
 
-        tk.Label(self.login_frame, text="Логин:").grid(row=0, column=0)
-        self.username_entry = tk.Entry(self.login_frame)
+        ttk.Label(self.login_frame, text="Логин:").grid(row=0, column=0)
+        self.username_entry = ttk.Entry(self.login_frame)
         self.username_entry.grid(row=0, column=1)
 
-        tk.Label(self.login_frame, text="Пароль:").grid(row=1, column=0)
-        self.password_entry = tk.Entry(self.login_frame, show="*")
+        ttk.Label(self.login_frame, text="Пароль:").grid(row=1, column=0)
+        self.password_entry = ttk.Entry(self.login_frame, show="*")
         self.password_entry.grid(row=1, column=1)
 
-        self.login_button = tk.Button(self.login_frame, text="Войти", command=self.login)
+        self.login_button = ttk.Button(self.login_frame, text="Войти", command=self.login)
         self.login_button.grid(row=2, columnspan=2)
 
         # Вторая форма - отображение файлов
         self.file_frame = None
+        self.current_directory = '/'
+        self.previous_directory = []
+        self.user_permissions = {}
 
     def login(self):
         username = self.username_entry.get()
@@ -34,22 +39,36 @@ class FTPClient:
             self.ftp.login(user=username, passwd=password)  # Аутентификация
             self.ftp.prot_p()  # Устанавливаем защищенный режим передачи данных
             messagebox.showinfo("Успех", "Успешная авторизация!")
+            self.user_permissions = self.get_user_permissions(username)  # Получаем права пользователя
             self.show_files()
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось подключиться: {e}")
+
+    def get_user_permissions(self, username):
+        # Здесь вы можете определить права доступа для пользователей
+        if username == "admin":
+            return {
+                "files": ["Read", "Write", "Append", "Delete", "Rename"],
+                "directories": ["List", "Create", "Delete", "Rename"]
+            }
+        else:
+            return {
+                "files": ["Read", "Write", "Append", "Delete", "Rename"],
+                "directories": ["List"]
+            }
 
     def show_files(self):
         # Удаляем форму авторизации
         self.login_frame.pack_forget()
 
         # Создаем новую форму для отображения файлов
-        self.file_frame = tk.Frame(self.master)
-        self.file_frame.pack(padx=10, pady=10)
+        self.file_frame = Frame(self.master)
+        self.file_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-        tk.Label(self.file_frame, text="Список файлов и директорий:").pack()
+        ttk.Label(self.file_frame, text="Список файлов и директорий:").pack()
 
-        self.file_listbox = Listbox(self.file_frame, width=50, height=15)
-        self.file_listbox.pack(side=tk.LEFT)
+        self.file_listbox = Listbox(self.file_frame, width=80, height=20)
+        self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         scrollbar = Scrollbar(self.file_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -57,21 +76,89 @@ class FTPClient:
         self.file_listbox.config(yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.file_listbox.yview)
 
+        self.file_listbox.bind('<Double-Button-1>', self.enter_directory)  # Двойной клик для входа в директорию
+        self.file_listbox.bind('<Button-3>', self.show_file_options)  # Правый клик для опций файла
+
+        # Кнопка "Назад"
+        self.back_button = ttk.Button(self.file_frame, text="Назад", command=self.go_back)
+        self.back_button.pack(pady=10)
+
         self.list_files()
 
         # Кнопка "Выйти"
-        self.logout_button = tk.Button(self.file_frame, text="Выйти", command=self.logout)
+        self.logout_button = ttk.Button(self.file_frame, text="Выйти", command=self.logout)
         self.logout_button.pack(pady=10)
 
     def list_files(self):
         try:
             self.ftp.set_pasv(False)  # Устанавливаем активный режим
-            files = self.ftp.nlst()  # Получаем список файлов и директорий
-            self.file_listbox.delete(0, tk.END)  # Очищаем список перед добавлением новых файлов
+            files = self.ftp.nlst(self.current_directory)  # Получаем список файлов и директорий
+            directories = []
+            regular_files = []
+
             for file in files:
+                if self.is_directory(file):
+                    directories.append(file)
+                else:
+                    regular_files.append(file)
+
+            # Сортируем директории и файлы
+            directories.sort()
+            regular_files.sort()
+
+            self.file_listbox.delete(0, tk.END)  # Очищаем список перед добавлением новых файлов
+            for directory in directories:
+                self.file_listbox.insert(tk.END, directory + "/")  # Добавляем слэш для обозначения директории
+            for file in regular_files:
                 self.file_listbox.insert(tk.END, file)
+
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось получить список файлов: {e}")
+
+    def is_directory(self, name):
+        # Проверка, является ли элемент директорией
+        try:
+            self.ftp.cwd(name)  # Пытаемся перейти в директорию
+            self.ftp.cwd('..')  # Возвращаемся обратно
+            return True
+        except Exception:
+            return False
+
+    def enter_directory(self, event):
+        selected = self.file_listbox.get(self.file_listbox.curselection())
+        if selected.endswith('/'):
+            self.previous_directory.append(self.current_directory)  # Сохраняем текущую директорию
+            directory_name = selected[:-1]  # Убираем слэш
+            self.current_directory = os.path.join(self.current_directory, directory_name)
+            self.list_files()
+
+    def go_back(self):
+        if self.previous_directory:
+            self.current_directory = self.previous_directory.pop()  # Возвращаемся к предыдущей директории
+            self.list_files()
+
+    def show_file_options(self, event):
+        selected = self.file_listbox.get(self.file_listbox.curselection())
+        if not selected.endswith('/'):
+            self.open_file(selected)
+
+    def open_file(self, filename):
+        # Открытие файла для чтения
+        try:
+            with open(os.path.join(self.current_directory, filename), 'rb') as file:
+                content = file.read().decode('utf-8', errors='ignore')  # Чтение файла
+                self.show_file_content(filename, content)
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось открыть файл: {e}")
+
+    def show_file_content(self, filename, content):
+        # Окно для отображения содержимого файла
+        file_window = Toplevel(self.master)
+        file_window.title(filename)
+        text_area = Text(file_window, wrap='word')
+        text_area.insert(tk.END, content)
+        text_area.pack(expand=True, fill='both')
+        text_area.config(state='disabled')  # Запрет редактирования
 
     def logout(self):
         if hasattr(self, 'ftp'):
