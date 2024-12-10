@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, Listbox, Scrollbar, Text, Toplevel, Frame, Button, ttk
+from tkinter import messagebox, Listbox, Scrollbar, Text, Toplevel, Frame, Button, ttk, filedialog
 from ftplib import FTP_TLS
 import os
 
@@ -34,6 +34,10 @@ class FTPClient:
         username = self.username_entry.get()
         password = self.password_entry.get()
 
+        if not username or not password:
+            messagebox.showerror("Ошибка", "Логин и пароль не могут быть пустыми.")
+            return
+
         try:
             self.ftp = FTP_TLS('127.0.0.1')  # Используем FTP_TLS
             self.ftp.login(user=username, passwd=password)  # Аутентификация
@@ -41,8 +45,8 @@ class FTPClient:
             messagebox.showinfo("Успех", "Успешная авторизация!")
             self.user_permissions = self.get_user_permissions(username)  # Получаем права пользователя
             self.show_files()
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось подключиться: {e}")
+        except Exception:
+            messagebox.showerror("Ошибка", "Не удалось подключиться. Проверьте логин и пароль.")
 
     def get_user_permissions(self, username):
         # Здесь вы можете определить права доступа для пользователей
@@ -83,6 +87,18 @@ class FTPClient:
         self.back_button = ttk.Button(self.file_frame, text="Назад", command=self.go_back)
         self.back_button.pack(pady=10)
 
+        # Кнопка "Загрузить файл"
+        self.upload_button = ttk.Button(self.file_frame, text="Загрузить файл", command=self.upload_file)
+        self.upload_button.pack(pady=10)
+
+        # Кнопка "Скачать файл"
+        self.download_button = ttk.Button(self.file_frame, text="Скачать файл", command=self.download_file)
+        self.download_button.pack(pady=10)
+
+        # Кнопка "Обновить список"
+        self.refresh_button = ttk.Button(self.file_frame, text="Обновить список", command=self.list_files)
+        self.refresh_button.pack(pady=10)
+
         self.list_files()
 
         # Кнопка "Выйти"
@@ -91,13 +107,14 @@ class FTPClient:
 
     def list_files(self):
         try:
-            self.ftp.set_pasv(False)  # Устанавливаем активный режим
+            self.ftp.set_pasv(False)
             files = self.ftp.nlst(self.current_directory)  # Получаем список файлов и директорий
             directories = []
             regular_files = []
 
             for file in files:
-                if self.is_directory(file):
+                full_path = os.path.join(self.current_directory, file)
+                if self.is_directory(full_path):
                     directories.append(file)
                 else:
                     regular_files.append(file)
@@ -115,15 +132,6 @@ class FTPClient:
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось получить список файлов: {e}")
 
-    def is_directory(self, name):
-        # Проверка, является ли элемент директорией
-        try:
-            self.ftp.cwd(name)  # Пытаемся перейти в директорию
-            self.ftp.cwd('..')  # Возвращаемся обратно
-            return True
-        except Exception:
-            return False
-
     def enter_directory(self, event):
         selected = self.file_listbox.get(self.file_listbox.curselection())
         if selected.endswith('/'):
@@ -131,6 +139,17 @@ class FTPClient:
             directory_name = selected[:-1]  # Убираем слэш
             self.current_directory = os.path.join(self.current_directory, directory_name)
             self.list_files()
+
+    def is_directory(self, name):
+    # Проверка, является ли элемент директорией
+        try:
+            self.ftp.cwd(name)  # Пытаемся перейти в директорию
+            self.ftp.cwd('..')  # Возвращаемся обратно
+            return True
+        except Exception as e:
+            if "550" in str(e):
+                return False  # Игнорируем ошибку 550
+            raise  # Если это не ошибка 550, поднимаем исключение
 
     def go_back(self):
         if self.previous_directory:
@@ -148,8 +167,8 @@ class FTPClient:
             with open(os.path.join(self.current_directory, filename), 'rb') as file:
                 content = file.read().decode('utf-8', errors='ignore')  # Чтение файла
                 self.show_file_content(filename, content)
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось открыть файл: {e}")
+        except Exception:
+            messagebox.showerror("Ошибка", "Не удалось открыть файл.")
 
     def show_file_content(self, filename, content):
         # Окно для отображения содержимого файла
@@ -160,12 +179,42 @@ class FTPClient:
         text_area.pack(expand=True, fill='both')
         text_area.config(state='disabled')  # Запрет редактирования
 
+    def upload_file(self):
+        # Загрузка файла на сервер
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            try:
+                self.ftp.set_pasv(True)  # Устанавливаем пассивный режим
+                with open(file_path, 'rb') as file:
+                    self.ftp.storbinary(f'STOR {os.path.basename(file_path)}', file)
+                messagebox.showinfo("Успех", "Файл успешно загружен!")
+                self.list_files()  # Обновляем список файлов после загрузки
+            except Exception:
+                messagebox.showerror("Ошибка", "Не удалось загрузить файл.")
+
+    def download_file(self):
+        # Скачивание файла с сервера
+        selected = self.file_listbox.get(self.file_listbox.curselection())
+        if selected.endswith('/'):
+            messagebox.showwarning("Предупреждение", "Выберите файл для скачивания.")
+            return
+
+        save_path = filedialog.asksaveasfilename(defaultextension=".txt", initialfile=selected)
+        if save_path:
+            try:
+                self.ftp.set_pasv(True)  # Устанавливаем пассивный режим
+                with open(save_path, 'wb') as file:
+                    self.ftp.retrbinary(f'RETR {selected}', file.write)
+                messagebox.showinfo("Успех", "Файл успешно скачан!")
+            except Exception:
+                messagebox.showerror("Ошибка", "Не удалось скачать файл.")
+
     def logout(self):
         if hasattr(self, 'ftp'):
             try:
                 self.ftp.quit()  # Закрываем соединение с FTP-сервером
-            except Exception as e:
-                print(f"Ошибка при выходе: {e}")
+            except Exception:
+                pass  # Игнорируем ошибки при выходе
         self.show_login_frame()  # Возвращаемся к форме авторизации
 
     def show_login_frame(self):
@@ -182,8 +231,8 @@ class FTPClient:
         if hasattr(self, 'ftp'):
             try:
                 self.ftp.quit()
-            except Exception as e:
-                print(f"Ошибка при выходе: {e}")
+            except Exception:
+                pass  # Игнорируем ошибки при выходе
         self.master.destroy()
 
 if __name__ == "__main__":
