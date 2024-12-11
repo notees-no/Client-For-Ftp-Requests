@@ -195,7 +195,7 @@ class ModernFTPClient:
                 self.ftp_connection.storbinary(f'STOR {filename}', file)
 
             logging.info(f"Файл {filename} успешно загружен")
-            messagebox.showinfo("Успех", "Файл успешно загружен")
+            # messagebox.showinfo("Успех", "Файл успешно загружен")
             self.refresh_list()
 
         except Exception as e:
@@ -222,7 +222,7 @@ class ModernFTPClient:
                 self.ftp_connection.retrbinary(f'RETR {selected_file}', file.write)
 
             logging.info(f"Файл {selected_file} успешно скачан")
-            messagebox.showinfo("Успех", "Файл успешно скачан")
+            # messagebox.showinfo("Успех", "Файл успешно скачан")
 
         except Exception as e:
             logging.error(f"Не удалось скачать файл: {str(e)}")
@@ -245,7 +245,7 @@ class ModernFTPClient:
             self.ftp_connection.mkd(os.path.join(self.current_directory, new_dir_name))
 
             logging.info(f"Директория {new_dir_name} успешно создана")
-            messagebox.showinfo("Успех", "Директория успешно создана")
+            # messagebox.showinfo("Успех", "Директория успешно создана")
             self.refresh_list()
 
         except Exception as e:
