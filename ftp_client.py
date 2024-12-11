@@ -4,6 +4,7 @@ from tkinter import messagebox, filedialog, simpledialog
 from ftplib import FTP
 import os
 import logging
+import json
 
 # Настройка логирования
 # logging.basicConfig(filename='ftp_client.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -12,12 +13,35 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 class ModernFTPClient:
+    CONFIG_FILE = 'ftp_config.json'
+
     def __init__(self):
         self.ftp_connection = None
         self.current_directory = '/'
         self.login_window_instance = None
         self.main_window_instance = None
+        self.load_config()  # Загружаем конфигурацию
         self.login_window()
+
+    def load_config(self):
+        """Загружает IP и порт из конфигурационного файла."""
+        if os.path.exists(self.CONFIG_FILE):
+            with open(self.CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                self.last_ip = config.get('ip', '')
+                self.last_port = config.get('port', '')
+        else:
+            self.last_ip = ''
+            self.last_port = ''
+
+    def save_config(self, ip, port):
+        """Сохраняет IP и порт в конфигурационный файл."""
+        config = {
+            'ip': ip,
+            'port': port
+        }
+        with open(self.CONFIG_FILE, 'w') as f:
+            json.dump(config, f)
 
     def login_window(self):
         self.login_window_instance = ctk.CTk()  # Создаем окно входа
@@ -29,10 +53,12 @@ class ModernFTPClient:
         ctk.CTkLabel(self.login_window_instance, text="IP-адрес:").pack()
         self.ip_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите IP-адрес")
         self.ip_entry.pack(pady=10)
+        self.ip_entry.insert(0, self.last_ip)  # Заполняем поле IP
 
         ctk.CTkLabel(self.login_window_instance, text="Порт:").pack()
         self.port_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите порт", validate="key")
         self.port_entry.pack(pady=10)
+        self.port_entry.insert(0, self.last_port)  # Заполняем поле порта
 
         ctk.CTkLabel(self.login_window_instance, text="Логин:").pack()
         self.username_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите логин")
@@ -58,6 +84,7 @@ class ModernFTPClient:
 
             logging.info(f"Успешное подключение к FTP-серверу с логином {username}")
 
+            self.save_config(ip_address, port)  # Сохраняем IP и порт
             self.login_window_instance.destroy()  # Закрываем окно входа
             self.main_window()
 
@@ -81,7 +108,7 @@ class ModernFTPClient:
         self.dir_listbox_frame = ctk.CTkFrame(self.dir_frame)
         self.dir_listbox_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.dir_listbox = tk.Listbox(self.dir_listbox_frame, bg="#2E2E2E", fg ="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
+        self.dir_listbox = tk.Listbox(self.dir_listbox_frame, bg="#2E2E2E", fg="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
         self.dir_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.scrollbar = tk.Scrollbar(self.dir_listbox_frame, command=self.dir_listbox.yview)
@@ -229,14 +256,14 @@ class ModernFTPClient:
         if not self.ftp_connection:
             messagebox.showwarning("Внимание", "Нет подключения к серверу")
             return
-    
+
         selected_file_index = self.file_listbox.curselection()
         selected_dir_index = self.dir_listbox.curselection()
-    
+
         if not selected_file_index and not selected_dir_index:
             messagebox.showwarning("Внимание", "Выберите элемент для удаления")
             return
-    
+
         # Если выбран файл
         if selected_file_index:
             selected_file = self.file_listbox.get(selected_file_index)
@@ -247,7 +274,7 @@ class ModernFTPClient:
             except Exception as e:
                 logging.error(f"Не удалось удалить файл: {str(e)}")
                 messagebox.showerror("Ошибка", f"Не удалось удалить файл: {str(e)}")
-    
+
         # Если выбран каталог
         if selected_dir_index:
             selected_dir = self.dir_listbox.get(selected_dir_index)
@@ -258,9 +285,9 @@ class ModernFTPClient:
             except Exception as e:
                 logging.error(f"Не удалось удалить директорию: {str(e)}")
                 messagebox.showerror("Ошибка", f"Не удалось удалить директорию: {str(e)}")
-    
+
         self.refresh_list()
-    
+
     def enter_directory(self):
         if not self.ftp_connection:
             messagebox.showwarning("Внимание", "Нет подключения к серверу")
