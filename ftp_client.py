@@ -22,9 +22,17 @@ class ModernFTPClient:
     def login_window(self):
         self.login_window_instance = ctk.CTk()  # Создаем окно входа
         self.login_window_instance.title("Вход")
-        self.login_window_instance.geometry("400x300")
+        self.login_window_instance.geometry("700x600")
 
         ctk.CTkLabel(self.login_window_instance, text="FTP Клиент", font=("Roboto", 24)).pack(pady=20)
+
+        ctk.CTkLabel(self.login_window_instance, text="IP-адрес:").pack()
+        self.ip_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите IP-адрес")
+        self.ip_entry.pack(pady=10)
+
+        ctk.CTkLabel(self.login_window_instance, text="Порт:").pack()
+        self.port_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите порт", validate="key")
+        self.port_entry.pack(pady=10)
 
         ctk.CTkLabel(self.login_window_instance, text="Логин:").pack()
         self.username_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите логин")
@@ -38,16 +46,18 @@ class ModernFTPClient:
         login_btn.pack(pady=20)
 
     def login(self):
+        ip_address = self.ip_entry.get()
+        port = self.port_entry.get()
         username = self.username_entry.get()
         password = self.password_entry.get()
 
         try:
             self.ftp_connection = FTP()
-            self.ftp_connection.connect('127.0.0.1', 21)
+            self.ftp_connection.connect(ip_address, int(port))  # Используем введенные IP и порт
             self.ftp_connection.login(user=username, passwd=password)
-            
+
             logging.info(f"Успешное подключение к FTP-серверу с логином {username}")
-            
+
             self.login_window_instance.destroy()  # Закрываем окно входа
             self.main_window()
 
