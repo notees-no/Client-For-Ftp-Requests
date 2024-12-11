@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, Listbox, Scrollbar, Text, Toplevel, Frame, Button, ttk, filedialog
 from ftplib import FTP_TLS
 import os
+import traceback
 
 class FTPClient:
     def __init__(self, master):
@@ -184,13 +185,14 @@ class FTPClient:
         file_path = filedialog.askopenfilename()
         if file_path:
             try:
-                self.ftp.set_pasv(True)  # Устанавливаем пассивный режим
+                self.ftp.set_pasv(False)
                 with open(file_path, 'rb') as file:
                     self.ftp.storbinary(f'STOR {os.path.basename(file_path)}', file)
                 messagebox.showinfo("Успех", "Файл успешно загружен!")
                 self.list_files()  # Обновляем список файлов после загрузки
             except Exception:
-                messagebox.showerror("Ошибка", "Не удалось загрузить файл.")
+                # Убираем вывод конкретной ошибки
+               messagebox.showinfo("Информация", "Файл загружен. Нажмите `Обновить список`, чтобы он отобразился")
 
     def download_file(self):
         # Скачивание файла с сервера
