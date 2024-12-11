@@ -77,8 +77,17 @@ class ModernFTPClient:
         self.dir_label = ctk.CTkLabel(self.dir_frame, text="Директории")
         self.dir_label.pack(pady=10)
 
-        self.dir_tree = ctk.CTkTextbox(self.dir_frame, width=200, height=300)
-        self.dir_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Создаем фрейм для Listbox и Scrollbar
+        self.dir_listbox_frame = ctk.CTkFrame(self.dir_frame)
+        self.dir_listbox_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.dir_listbox = tk.Listbox(self.dir_listbox_frame, bg="#2E2E2E", fg ="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
+        self.dir_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.scrollbar = tk.Scrollbar(self.dir_listbox_frame, command=self.dir_listbox.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.dir_listbox.config(yscrollcommand=self.scrollbar.set)
 
         self.file_frame = ctk.CTkFrame(self.main_window_instance, width=500)
         self.file_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
@@ -87,8 +96,17 @@ class ModernFTPClient:
         self.file_label = ctk.CTkLabel(self.file_frame, text="Файлы")
         self.file_label.pack(pady=10)
 
-        self.file_list = ctk.CTkTextbox(self.file_frame, width=500, height=300)
-        self.file_list.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Создаем фрейм для Listbox и Scrollbar для файлов
+        self.file_listbox_frame = ctk.CTkFrame(self.file_frame)
+        self.file_listbox_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.file_listbox = tk.Listbox(self.file_listbox_frame, bg="#2E2E2E", fg="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
+        self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.file_scrollbar = tk.Scrollbar(self.file_listbox_frame, command=self.file_listbox.yview)
+        self.file_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.file_listbox.config(yscrollcommand=self.file_scrollbar.set)
 
         self.control_frame = ctk.CTkFrame(self.main_window_instance)
         self.control_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
@@ -118,18 +136,18 @@ class ModernFTPClient:
             return
 
         try:
-            self.file_list.delete(1.0, tk.END)
-            self.dir_tree.delete(1.0, tk.END)
+            self.file_listbox.delete(0, tk.END)
+            self.dir_listbox.delete(0, tk.END)
 
             items = self.ftp_connection.nlst(self.current_directory)
 
             for item in items:
                 try:
                     self.ftp_connection.cwd(os.path.join(self.current_directory, item))
-                    self.dir_tree.insert(tk.END, item + "\n")
+                    self.dir_listbox.insert(tk.END, item)  # Добавляем директорию в Listbox
                     self.ftp_connection.cwd('..')
                 except Exception:
-                    self.file_list.insert(tk.END, item + "\n")
+                    self.file_listbox.insert(tk.END, item)  # Добавляем файл в Listbox
 
         except Exception as e:
             logging.error(f"Не удалось обновить список: {str(e)}")
@@ -162,20 +180,21 @@ class ModernFTPClient:
             messagebox.showwarning("Внимание", "Нет подключения к серверу")
             return
 
-        selected_file = self.file_list.get("1.0", tk.END).strip().split("\n")
-        if not selected_file or selected_file == ['']:
+        selected_file_index = self.file_listbox.curselection()
+        if not selected_file_index:
             messagebox.showwarning("Внимание", "Выберите файл для скачивания")
             return
 
-        save_path = filedialog.asksaveasfilename(defaultextension=".txt", initialfile=selected_file[-1])
+        selected_file = self.file_listbox.get(selected_file_index)
+        save_path = filedialog.asksaveasfilename(defaultextension=".txt", initialfile=selected_file)
         if not save_path:
             return
 
         try:
             with open(save_path, 'wb') as file:
-                self.ftp_connection.retrbinary(f'RETR {selected_file[-1]}', file.write)
+                self.ftp_connection.retrbinary(f'RETR {selected_file}', file.write)
 
-            logging.info(f"Файл {selected_file[-1]} успешно скачан")
+            logging.info(f"Файл {selected_file} успешно скачан")
             messagebox.showinfo("Успех", "Файл успешно скачан")
 
         except Exception as e:
@@ -211,19 +230,20 @@ class ModernFTPClient:
             messagebox.showwarning("Внимание", "Нет подключения к серверу")
             return
 
-        selected_file = self.file_list.get("1.0", tk.END).strip().split("\n")
-        if not selected_file or selected_file == ['']:
+        selected_file_index = self.file_listbox.curselection()
+        if not selected_file_index:
             messagebox.showwarning("Внимание", "Выберите элемент для удаления")
             return
 
+        selected_file = self.file_listbox.get(selected_file_index)
         try:
-            if selected_file[-1] in self.dir_tree.get("1.0", tk.END).strip().split("\n"):
-                self.ftp_connection.rmd(os.path.join(self.current_directory, selected_file[-1]))
-                logging.info(f"Директория {selected_file[-1]} успешно удалена")
+            if selected_file in self.dir_listbox.get(0, tk.END):
+                self.ftp_connection.rmd(os.path.join(self.current_directory, selected_file))
+                logging.info(f"Директория {selected_file} успешно удалена")
                 messagebox.showinfo("Успех", "Директория успешно удалена")
             else:
-                self.ftp_connection.delete(os.path.join(self.current_directory, selected_file[-1]))
-                logging.info(f"Файл {selected_file[-1]} успешно удален")
+                self.ftp_connection.delete(os.path.join(self.current_directory, selected_file))
+                logging.info(f"Файл {selected_file} успешно удален")
                 messagebox.showinfo("Успех", "Файл успешно удален")
             self.refresh_list()
 
@@ -236,14 +256,15 @@ class ModernFTPClient:
             messagebox.showwarning("Внимание", "Нет подключения к серверу")
             return
 
-        selected_dir = self.dir_tree.get("1.0", tk.END).strip().split("\n")
-        if not selected_dir or selected_dir == ['']:
+        selected_dir_index = self.dir_listbox.curselection()
+        if not selected_dir_index:
             messagebox.showwarning("Внимание", "Выберите директорию для входа")
             return
 
+        selected_dir = self.dir_listbox.get(selected_dir_index)
         try:
-            self.ftp_connection.cwd(os.path.join(self.current_directory, selected_dir[-1]))
-            self.current_directory = os.path.join(self.current_directory, selected_dir[-1])
+            self.ftp_connection.cwd(os.path.join(self.current_directory, selected_dir))
+            self.current_directory = os.path.join(self.current_directory, selected_dir)
             self.refresh_list()
 
         except Exception as e:
