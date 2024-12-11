@@ -229,28 +229,38 @@ class ModernFTPClient:
         if not self.ftp_connection:
             messagebox.showwarning("Внимание", "Нет подключения к серверу")
             return
-
+    
         selected_file_index = self.file_listbox.curselection()
-        if not selected_file_index:
+        selected_dir_index = self.dir_listbox.curselection()
+    
+        if not selected_file_index and not selected_dir_index:
             messagebox.showwarning("Внимание", "Выберите элемент для удаления")
             return
-
-        selected_file = self.file_listbox.get(selected_file_index)
-        try:
-            if selected_file in self.dir_listbox.get(0, tk.END):
-                self.ftp_connection.rmd(os.path.join(self.current_directory, selected_file))
-                logging.info(f"Директория {selected_file} успешно удалена")
-                messagebox.showinfo("Успех", "Директория успешно удалена")
-            else:
+    
+        # Если выбран файл
+        if selected_file_index:
+            selected_file = self.file_listbox.get(selected_file_index)
+            try:
                 self.ftp_connection.delete(os.path.join(self.current_directory, selected_file))
                 logging.info(f"Файл {selected_file} успешно удален")
                 messagebox.showinfo("Успех", "Файл успешно удален")
-            self.refresh_list()
-
-        except Exception as e:
-            logging.error(f"Не удалось удалить элемент: {str(e)}")
-            messagebox.showerror("Ошибка", f"Не удалось удалить элемент: {str(e)}")
-
+            except Exception as e:
+                logging.error(f"Не удалось удалить файл: {str(e)}")
+                messagebox.showerror("Ошибка", f"Не удалось удалить файл: {str(e)}")
+    
+        # Если выбран каталог
+        if selected_dir_index:
+            selected_dir = self.dir_listbox.get(selected_dir_index)
+            try:
+                self.ftp_connection.rmd(os.path.join(self.current_directory, selected_dir))
+                logging.info(f"Директория {selected_dir} успешно удалена")
+                messagebox.showinfo("Успех", "Директория успешно удалена")
+            except Exception as e:
+                logging.error(f"Не удалось удалить директорию: {str(e)}")
+                messagebox.showerror("Ошибка", f"Не удалось удалить директорию: {str(e)}")
+    
+        self.refresh_list()
+    
     def enter_directory(self):
         if not self.ftp_connection:
             messagebox.showwarning("Внимание", "Нет подключения к серверу")
