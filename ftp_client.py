@@ -1,244 +1,288 @@
+import customtkinter as ctk
 import tkinter as tk
-from tkinter import messagebox, Listbox, Scrollbar, Text, Toplevel, Frame, Button, ttk, filedialog
-from ftplib import FTP_TLS
+from tkinter import messagebox, filedialog, simpledialog
+from ftplib import FTP
 import os
-import traceback
+import logging
 
-class FTPClient:
-    def __init__(self, master):
-        self.master = master
-        self.master.title("FTP Client")
-        self.master.geometry("600x400")
+# Настройка логирования
+logging.basicConfig(filename='ftp_client.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-        # Первая форма - авторизация
-        self.login_frame = Frame(self.master)
-        self.login_frame.pack(padx=10, pady=10)
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
-        ttk.Label(self.login_frame, text="Логин:").grid(row=0, column=0)
-        self.username_entry = ttk.Entry(self.login_frame)
-        self.username_entry.grid(row=0, column=1)
+class ModernFTPClient:
+    def __init__(self):
+        self.login_window()
 
-        ttk.Label(self.login_frame, text="Пароль:").grid(row=1, column=0)
-        self.password_entry = ttk.Entry(self.login_frame, show="*")
-        self.password_entry.grid(row=1, column=1)
+    def login_window(self):
+        self.login_window = ctk.CTk()
+        self.login_window.title("Вход")
+        self.login_window.geometry("400x300")
 
-        self.login_button = ttk.Button(self.login_frame, text="Войти", command=self.login)
-        self.login_button.grid(row=2, columnspan=2)
+        ctk.CTkLabel(self.login_window, text="FTP Клиент", font=("Roboto", 24)).pack(pady=20)
 
-        # Вторая форма - отображение файлов
-        self.file_frame = None
-        self.current_directory = '/'
-        self.previous_directory = []
-        self.user_permissions = {}
+        ctk.CTkLabel(self.login_window, text="Логин:").pack()
+        self.username_entry = ctk.CTkEntry(self.login_window, placeholder_text="Введите логин")
+        self.username_entry.pack(pady=10)
+
+        ctk.CTkLabel(self.login_window, text="Пароль:").pack()
+        self.password_entry = ctk.CTkEntry(self.login_window, show="*", placeholder_text="Введите пароль")
+        self.password_entry.pack(pady=10)
+
+        login_btn = ctk.CTkButton(self.login_window, text="Войти", command=self.login)
+        login_btn.pack(pady=20)
 
     def login(self):
         username = self.username_entry.get()
         password = self.password_entry.get()
 
-        if not username or not password:
-            messagebox.showerror("Ошибка", "Логин и пароль не могут быть пустыми.")
+        try:
+            self.ftp_connection = FTP()
+            self.ftp_connection.connect('127.0.0.1', 21)
+            self.ftp_connection.login(user=username, passwd=password)
+            
+            logging.info(f"Успешное подключение к FTP-серверу с логином {username}")
+            
+            messagebox.showinfo("Успех", "Успешное подключение к FTP-серверу!")
+            
+            self.login_window.destroy()
+            
+            self.main_window()
+
+        except Exception as e:
+            logging.error(f"Не удалось подключиться к FTP-серверу: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось подключиться: {str(e)}")
+
+    def main_window(self):
+        self.main_toplevel = ctk.CTkToplevel()
+        self.main_toplevel.title("FTP Клиент")
+        self.main_toplevel.geometry("800x600")
+
+        self.current_directory = '/'
+
+        self.dir_frame = ctk.CTkFrame(self.main_toplevel, width=200)
+        self.dir_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.dir_frame.grid_propagate(False)
+
+        self.dir_label = ctk.CTkLabel(self.dir_frame, text="Директории")
+        self.dir_label.pack(pady=10)
+
+        self.dir_tree = tk.Listbox(self.dir_frame, bg="#2b2b2b", fg="white", selectbackground="#3b3b3b")
+        self.dir_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.file_frame = ctk.CTkFrame(self.main_toplevel, width=500)
+        self.file_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.file_frame.grid_propagate(False)
+
+        self.file_label = ctk.CTkLabel(self.file_frame, text="Файлы")
+        self.file_label.pack(pady=10)
+
+        self.file_list = tk.Listbox(self.file_frame, bg="#2b2b2b", fg="white", selectbackground="#3b3b3b")
+        self.file_list.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.control_frame = ctk.CTkFrame(self.main_toplevel)
+        self.control_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+
+        buttons = [
+            ("Загрузить", self.upload_file),
+            ("Скачать", self.download_file),
+            ("Создать папку", self.create_directory),
+            ("Удалить", self.delete_item),
+            ("Обновить", self.refresh_list),
+            ("Войти", self.enter_directory),
+            ("Назад", self.back_directory),
+            ("Выход", self.exit)
+        ]
+
+        for text, command in buttons:
+            btn = ctk.CTkButton(self.control_frame, text=text, command=command)
+            btn.pack(side=tk.LEFT, padx=5)
+
+        self.refresh_list()
+        self.main_toplevel.protocol("WM_DELETE_WINDOW", self.exit)
+
+    def refresh_list(self):
+        if not self.ftp_connection:
+            messagebox.showwarning("Внимание", "Нет подключения к серверу")
             return
 
         try:
-            self.ftp = FTP_TLS('127.0.0.1')  # Используем FTP_TLS
-            self.ftp.login(user=username, passwd=password)  # Аутентификация
-            self.ftp.prot_p()  # Устанавливаем защищенный режим передачи данных
-            messagebox.showinfo("Успех", "Успешная авторизация!")
-            self.user_permissions = self.get_user_permissions(username)  # Получаем права пользователя
-            self.show_files()
-        except Exception:
-            messagebox.showerror("Ошибка", "Не удалось подключиться. Проверьте логин и пароль.")
+            self.file_list.delete(0, tk.END)
+            self.dir_tree.delete(0, tk.END)
 
-    def get_user_permissions(self, username):
-        # Здесь вы можете определить права доступа для пользователей
-        if username == "admin":
-            return {
-                "files": ["Read", "Write", "Append", "Delete", "Rename"],
-                "directories": ["List", "Create", "Delete", "Rename"]
-            }
-        else:
-            return {
-                "files": ["Read", "Write", "Append", "Delete", "Rename"],
-                "directories": ["List"]
-            }
+            items = self.ftp_connection.nlst(self.current_directory)
 
-    def show_files(self):
-        # Удаляем форму авторизации
-        self.login_frame.pack_forget()
-
-        # Создаем новую форму для отображения файлов
-        self.file_frame = Frame(self.master)
-        self.file_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-
-        ttk.Label(self.file_frame, text="Список файлов и директорий:").pack()
-
-        self.file_listbox = Listbox(self.file_frame, width=80, height=20)
-        self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        scrollbar = Scrollbar(self.file_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.file_listbox.config(yscrollcommand=scrollbar.set)
-        scrollbar.config(command=self.file_listbox.yview)
-
-        self.file_listbox.bind('<Double-Button-1>', self.enter_directory)  # Двойной клик для входа в директорию
-        self.file_listbox.bind('<Button-3>', self.show_file_options)  # Правый клик для опций файла
-
-        # Кнопка "Назад"
-        self.back_button = ttk.Button(self.file_frame, text="Назад", command=self.go_back)
-        self.back_button.pack(pady=10)
-
-        # Кнопка "Загрузить файл"
-        self.upload_button = ttk.Button(self.file_frame, text="Загрузить файл", command=self.upload_file)
-        self.upload_button.pack(pady=10)
-
-        # Кнопка "Скачать файл"
-        self.download_button = ttk.Button(self.file_frame, text="Скачать файл", command=self.download_file)
-        self.download_button.pack(pady=10)
-
-        # Кнопка "Обновить список"
-        self.refresh_button = ttk.Button(self.file_frame, text="Обновить список", command=self.list_files)
-        self.refresh_button.pack(pady=10)
-
-        self.list_files()
-
-        # Кнопка "Выйти"
-        self.logout_button = ttk.Button(self.file_frame, text="Выйти", command=self.logout)
-        self.logout_button.pack(pady=10)
-
-    def list_files(self):
-        try:
-            self.ftp.set_pasv(False)
-            files = self.ftp.nlst(self.current_directory)  # Получаем список файлов и директорий
-            directories = []
-            regular_files = []
-
-            for file in files:
-                full_path = os.path.join(self.current_directory, file)
-                if self.is_directory(full_path):
-                    directories.append(file)
-                else:
-                    regular_files.append(file)
-
-            # Сортируем директории и файлы
-            directories.sort()
-            regular_files.sort()
-
-            self.file_listbox.delete(0, tk.END)  # Очищаем список перед добавлением новых файлов
-            for directory in directories:
-                self.file_listbox.insert(tk.END, directory + "/")  # Добавляем слэш для обозначения директории
-            for file in regular_files:
-                self.file_listbox.insert(tk.END, file)
+            for item in items:
+                try:
+                    # Проверяем, является ли элемент директорией
+                    self.ftp_connection.cwd(os.path.join(self.current_directory, item))
+                    self.dir_tree.insert(tk.END, item)
+                    self.ftp_connection.cwd('..')  # Возвращаемся обратно
+                except Exception:
+                    self.file_list.insert(tk.END, item)
 
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось получить список файлов: {e}")
-
-    def enter_directory(self, event):
-        selected = self.file_listbox.get(self.file_listbox.curselection())
-        if selected.endswith('/'):
-            self.previous_directory.append(self.current_directory)  # Сохраняем текущую директорию
-            directory_name = selected[:-1]  # Убираем слэш
-            self.current_directory = os.path.join(self.current_directory, directory_name)
-            self.list_files()
-
-    def is_directory(self, name):
-    # Проверка, является ли элемент директорией
-        try:
-            self.ftp.cwd(name)  # Пытаемся перейти в директорию
-            self.ftp.cwd('..')  # Возвращаемся обратно
-            return True
-        except Exception as e:
-            if "550" in str(e):
-                return False  # Игнорируем ошибку 550
-            raise  # Если это не ошибка 550, поднимаем исключение
-
-    def go_back(self):
-        if self.previous_directory:
-            self.current_directory = self.previous_directory.pop()  # Возвращаемся к предыдущей директории
-            self.list_files()
-
-    def show_file_options(self, event):
-        selected = self.file_listbox.get(self.file_listbox.curselection())
-        if not selected.endswith('/'):
-            self.open_file(selected)
-
-    def open_file(self, filename):
-        # Открытие файла для чтения
-        try:
-            with open(os.path.join(self.current_directory, filename), 'rb') as file:
-                content = file.read().decode('utf-8', errors='ignore')  # Чтение файла
-                self.show_file_content(filename, content)
-        except Exception:
-            messagebox.showerror("Ошибка", "Не удалось открыть файл.")
-
-    def show_file_content(self, filename, content):
-        # Окно для отображения содержимого файла
-        file_window = Toplevel(self.master)
-        file_window.title(filename)
-        text_area = Text(file_window, wrap='word')
-        text_area.insert(tk.END, content)
-        text_area.pack(expand=True, fill='both')
-        text_area.config(state='disabled')  # Запрет редактирования
+            logging.error(f"Не удалось обновить список: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось обновить список: {str(e)}")
 
     def upload_file(self):
-        # Загрузка файла на сервер
-        file_path = filedialog.askopenfilename()
-        if file_path:
-            try:
-                self.ftp.set_pasv(False)
-                with open(file_path, 'rb') as file:
-                    self.ftp.storbinary(f'STOR {os.path.basename(file_path)}', file)
-                messagebox.showinfo("Успех", "Файл успешно загружен!")
-                self.list_files()  # Обновляем список файлов после загрузки
-            except Exception:
-                # Убираем вывод конкретной ошибки
-               messagebox.showinfo("Информация", "Файл загружен. Нажмите `Обновить список`, чтобы он отобразился")
-
-    def download_file(self):
-        # Скачивание файла с сервера
-        selected = self.file_listbox.get(self.file_listbox.curselection())
-        if selected.endswith('/'):
-            messagebox.showwarning("Предупреждение", "Выберите файл для скачивания.")
+        if not self.ftp_connection:
+            messagebox.showwarning("Внимание", "Нет подключения к серверу")
             return
 
-        save_path = filedialog.asksaveasfilename(defaultextension=".txt", initialfile=selected)
-        if save_path:
+        file_path = filedialog.askopenfilename()
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'rb') as file:
+                filename = os.path.basename(file_path)
+                self.ftp_connection.storbinary(f'STOR {filename}', file)
+
+            logging.info(f"Файл {filename} успешно загружен")
+            messagebox.showinfo("Успех", "Файл успешно загружен")
+            self.refresh_list()
+
+        except Exception as e:
+            logging.error(f"Не удалось загрузить файл: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось загрузить файл: {str(e)}")
+
+    def download_file(self):
+        if not self.ftp_connection:
+            messagebox.showwarning("Внимание", "Нет подключения к серверу")
+            return
+
+        selected_indices = self.file_list.curselection()
+        if not selected_indices:
+            messagebox.showwarning("Внимание", "Выберите файл для скачивания")
+            return
+
+        selected_file = self.file_list.get(selected_indices)
+
+        save_path = filedialog.asksaveasfilename(defaultextension=".txt", initialfile=selected_file)
+        if not save_path:
+            return
+
+        try:
+            with open(save_path, 'wb') as file:
+                self.ftp_connection.retrbinary(f'RETR {selected_file}', file.write)
+
+            logging.info(f"Файл {selected_file} успешно скачан")
+            messagebox.showinfo("Успех", "Файл успешно скачан")
+
+        except Exception as e:
+            logging.error(f"Не удалось скачать файл: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось скачать файл: {str(e)}")
+
+    def create_directory(self):
+        if not self.ftp_connection:
+            messagebox.showwarning("Внимание", "Нет подключения к серверу")
+            return
+
+        new_dir_name = simpledialog.askstring("Создание директории", "Введите имя новой директории")
+        if not new_dir_name:
+            return
+
+        try:
+            # Проверяем, существует ли директория с таким же именем
+            if new_dir_name in self.ftp_connection.nlst(self.current_directory):
+                messagebox.showerror("Ошибка", "Директория с таким же именем уже существует")
+                return
+
+            self.ftp_connection.mkd(os.path.join(self.current_directory, new_dir_name))
+
+            logging.info(f"Директория {new_dir_name} успешно создана")
+            messagebox.showinfo("Успех", "Директория успешно создана")
+            self.refresh_list()
+
+        except Exception as e:
+            logging.error(f"Не удалось создать директорию: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось создать директорию: {str(e)}")
+
+    def delete_item(self):
+        if not self.ftp_connection:
+            messagebox.showwarning("Внимание", "Нет подключения к серверу")
+            return
+
+        selected_indices = self.file_list.curselection()
+        if not selected_indices:
+            selected_indices = self.dir_tree.curselection()
+            if not selected_indices:
+                messagebox.showwarning("Внимание", "Выберите элемент для удаления")
+                return
+
+            selected_item = self.dir_tree.get(selected_indices)
             try:
-                self.ftp.set_pasv(True)  # Устанавливаем пассивный режим
-                with open(save_path, 'wb') as file:
-                    self.ftp.retrbinary(f'RETR {selected}', file.write)
-                messagebox.showinfo("Успех", "Файл успешно скачан!")
-            except Exception:
-                messagebox.showerror("Ошибка", "Не удалось скачать файл.")
+                self.ftp_connection.rmd(os.path.join(self.current_directory, selected_item))
 
-    def logout(self):
-        if hasattr(self, 'ftp'):
+                logging.info(f"Директория {selected_item} успешно удалена")
+                messagebox.showinfo("Успех", "Директория успешно удалена")
+                self.refresh_list()
+
+            except Exception as e:
+                logging.error(f"Не удалось удалить директорию: {str(e)}")
+                messagebox.showerror("Ошибка", f"Не удалось удалить директорию: {str(e)}")
+        else:
+            selected_file = self.file_list.get(selected_indices)
             try:
-                self.ftp.quit()  # Закрываем соединение с FTP-сервером
-            except Exception:
-                pass  # Игнорируем ошибки при выходе
-        self.show_login_frame()  # Возвращаемся к форме авторизации
+                self.ftp_connection.delete(os.path.join(self.current_directory, selected_file))
 
-    def show_login_frame(self):
-        # Удаляем форму отображения файлов
-        if self.file_frame:
-            self.file_frame.pack_forget()
+                logging.info(f"Файл {selected_file} успешно удален")
+                messagebox.showinfo("Успех", "Файл успешно удален")
+                self.refresh_list()
 
-        # Возвращаемся к форме авторизации
-        self.login_frame.pack(padx=10, pady=10)
-        self.username_entry.delete(0, tk.END)
-        self.password_entry.delete(0, tk.END)
+            except Exception as e:
+                logging.error(f"Не удалось удалить файл: {str(e)}")
+                messagebox.showerror("Ошибка", f"Не удалось удалить файл: {str(e)}")
 
-    def close(self):
-        if hasattr(self, 'ftp'):
-            try:
-                self.ftp.quit()
-            except Exception:
-                pass  # Игнорируем ошибки при выходе
-        self.master.destroy()
+    def enter_directory(self):
+        if not self.ftp_connection:
+            messagebox.showwarning("Внимание", "Нет подключения к серверу")
+            return
+
+        selected_indices = self.dir_tree.curselection()
+        if not selected_indices:
+            messagebox.showwarning("Внимание", "Выберите директорию для входа")
+            return
+
+        selected_dir = self.dir_tree.get(selected_indices)
+        try:
+            self.ftp_connection.cwd(os.path.join(self.current_directory, selected_dir))
+            self.current_directory = os.path.join(self.current_directory, selected_dir)
+            self.refresh_list()
+
+        except Exception as e:
+            logging.error(f"Не удалось войти в директорию: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось войти в директорию: {str(e)}")
+
+    def back_directory(self):
+        if not self.ftp_connection:
+            messagebox.showwarning("Внимание", "Нет подключения к серверу")
+            return
+
+        try:
+            self.ftp_connection.cwd('..')
+            self.current_directory = os.path.dirname(self.current_directory)
+            self.refresh_list()
+
+        except Exception as e:
+            logging.error(f"Не удалось выйти из директории: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось выйти из директории: {str(e)}")
+
+    def exit(self):
+        if self.ftp_connection:
+            self.ftp_connection.quit()
+            logging.info("Соединение с FTP-сервером закрыто")
+        self.main_toplevel.destroy()  # закрываем окно main_toplevel
+        self.login_window.destroy()  # закрываем окно login_window
+
+def main():
+    app = ModernFTPClient()
+    if hasattr(app, 'main_toplevel'):
+        app.main_toplevel.mainloop()
+    else:
+        app.login_window.mainloop()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = FTPClient(root)
-    root.protocol("WM_DELETE_WINDOW", app.close)
-    root.mainloop()
+    main()
