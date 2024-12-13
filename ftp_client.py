@@ -42,32 +42,35 @@ class ModernFTPClient:
             json.dump(config, f)
 
     def login_window(self):
-        self.login_window_instance = ctk.CTk()  # Создаем окно входа
-        self.login_window_instance.title("Вход")
-        self.login_window_instance.geometry("700x600")
+        if self.login_window_instance is None:  # Проверяем, существует ли окно
+            self.login_window_instance = ctk.CTk()  # Создаем окно входа
+            self.login_window_instance.title("Вход")
+            self.login_window_instance.geometry("700x600")
 
-        ctk.CTkLabel(self.login_window_instance, text="FTP Клиент", font=("Roboto", 24)).pack(pady=20)
+            ctk.CTkLabel(self.login_window_instance, text="FTP Клиент", font=("Roboto", 24)).pack(pady=20)
 
-        ctk.CTkLabel(self.login_window_instance, text="IP-адрес:").pack()
-        self.ip_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите IP-адрес")
-        self.ip_entry.pack(pady=10)
-        self.ip_entry.insert(0, self.last_ip)  # Заполняем поле IP
+            ctk.CTkLabel(self.login_window_instance, text="IP-адрес:").pack()
+            self.ip_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите IP-адрес")
+            self.ip_entry.pack(pady=10)
+            self.ip_entry.insert(0, self.last_ip)  # Заполняем поле IP
 
-        ctk.CTkLabel(self.login_window_instance, text="Порт:").pack()
-        self.port_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите порт", validate="key")
-        self.port_entry.pack(pady=10)
-        self.port_entry.insert(0, self.last_port)  # Заполняем поле порта
+            ctk.CTkLabel(self.login_window_instance, text="Порт:").pack()
+            self.port_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите порт", validate="key")
+            self.port_entry.pack(pady=10)
+            self.port_entry.insert(0, self.last_port)  # Заполняем поле порта
 
-        ctk.CTkLabel(self.login_window_instance, text="Логин:").pack()
-        self.username_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите логин")
-        self.username_entry.pack(pady=10)
+            ctk.CTkLabel(self.login_window_instance, text="Логин:").pack()
+            self.username_entry = ctk.CTkEntry(self.login_window_instance, placeholder_text="Введите логин")
+            self.username_entry.pack(pady=10)
 
-        ctk.CTkLabel(self.login_window_instance, text="Пароль:").pack()
-        self.password_entry = ctk.CTkEntry(self.login_window_instance, show="*", placeholder_text="Введите пароль")
-        self.password_entry.pack(pady=10)
+            ctk.CTkLabel(self.login_window_instance, text="Пароль:").pack()
+            self.password_entry = ctk.CTkEntry(self.login_window_instance, show="*", placeholder_text="Введите пароль")
+            self.password_entry.pack(pady=10)
 
-        login_btn = ctk.CTkButton(self.login_window_instance, text="Войти", command=self.login)
-        login_btn.pack(pady=20)
+            login_btn = ctk.CTkButton(self.login_window_instance, text="Войти", command=self.login)
+            login_btn.pack(pady=20)
+
+        self.login_window_instance.deiconify()  # Показываем окно входа
 
     def login(self):
         ip_address = self.ip_entry.get()
@@ -83,83 +86,86 @@ class ModernFTPClient:
             logging.info(f"Успешное подключение к FTP-серверу с логином {username}")
 
             self.save_config(ip_address, port)  # Сохраняем IP и порт
-            self.login_window_instance.destroy()  # Закрываем окно входа
-            self.main_window()
+            self.login_window_instance.withdraw()  # Скрываем окно входа
+            self.main_window()  # Переходим к основному окну
 
         except Exception as e:
             logging.error(f"Не удалось подключиться к FTP-серверу: {str(e)}")
             messagebox.showerror("Ошибка", f"Не удалось подключиться: {str(e)}")
 
     def main_window(self):
-        self.main_window_instance = ctk.CTk()  # Создаем основное окно
-        self.main_window_instance.title("FTP Клиент")
-        self.main_window_instance.geometry("1200x600")
+        if self.main_window_instance is None:  # Проверяем, существует ли основное окно
+            self.main_window_instance = ctk.CTk()  # Создаем основное окно
+            self.main_window_instance.title("FTP Клиент")
+            self.main_window_instance.geometry("1200x600")
 
-        # Создаем отдельный фрейм для отображения текущей директории
-        self.path_frame = ctk.CTkFrame(self.main_window_instance)
-        self.path_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(10,0))
-        
-        # Label для отображения текущей директории
-        self.current_dir_label = ctk.CTkLabel(self.path_frame, text=f"Текущая директория: {self.current_directory}")
-        self.current_dir_label.pack(pady=5)
+            # Создаем отдельный фрейм для отображения текущей директории
+            self.path_frame = ctk.CTkFrame(self.main_window_instance)
+            self.path_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 0))
 
-        self.dir_frame = ctk.CTkFrame(self.main_window_instance, width=200)
-        self.dir_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
-        self.dir_frame.grid_propagate(False)
+            # Label для отображения текущей директории
+            self.current_dir_label = ctk.CTkLabel(self.path_frame, text=f"Текущая директория: {self.current_directory}")
+            self.current_dir_label.pack(pady=5)
 
-        self.dir_label = ctk.CTkLabel(self.dir_frame, text="Директории")
-        self.dir_label.pack(pady=10)
+            self.dir_frame = ctk.CTkFrame(self.main_window_instance, width=200)
+            self.dir_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+            self.dir_frame.grid_propagate(False)
 
-        # Создаем фрейм для Listbox и Scrollbar
-        self.dir_listbox_frame = ctk.CTkFrame(self.dir_frame)
-        self.dir_listbox_frame.pack(fill=tk.BOTH, expand=True)
+            self.dir_label = ctk.CTkLabel(self.dir_frame, text="Директории")
+            self.dir_label.pack(pady=10)
 
-        self.dir_listbox = tk.Listbox(self.dir_listbox_frame, bg="#2E2E2E", fg="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
-        self.dir_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            # Создаем фрейм для Listbox и Scrollbar
+            self.dir_listbox_frame = ctk.CTkFrame(self.dir_frame)
+            self.dir_listbox_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.scrollbar = tk.Scrollbar(self.dir_listbox_frame, command=self.dir_listbox.yview)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            self.dir_listbox = tk.Listbox(self.dir_listbox_frame, bg="#2E2E2E", fg="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
+            self.dir_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.dir_listbox.config(yscrollcommand=self.scrollbar.set)
+            self.scrollbar = tk.Scrollbar(self.dir_listbox_frame, command=self.dir_listbox.yview)
+            self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.file_frame = ctk.CTkFrame(self.main_window_instance, width=500)
-        self.file_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
-        self.file_frame.grid_propagate(False)
+            self.dir_listbox.config(yscrollcommand=self.scrollbar.set)
 
-        self.file_label = ctk.CTkLabel(self.file_frame, text="Файлы")
-        self.file_label.pack(pady=10)
+            self.file_frame = ctk.CTkFrame(self.main_window_instance, width=500)
+            self.file_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
+            self.file_frame.grid_propagate(False)
 
-        # Создаем фрейм для Listbox и Scrollbar для файлов
-        self.file_listbox_frame = ctk.CTkFrame(self.file_frame)
-        self.file_listbox_frame.pack(fill=tk.BOTH, expand=True)
+            self.file_label = ctk.CTkLabel(self.file_frame, text="Файлы")
+            self.file_label.pack(pady=10)
 
-        self.file_listbox = tk.Listbox(self.file_listbox_frame, bg="#2E2E2E", fg="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
-        self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            # Создаем фрейм для Listbox и Scrollbar для файлов
+            self.file_listbox_frame = ctk.CTkFrame(self.file_frame)
+            self.file_listbox_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.file_scrollbar = tk.Scrollbar(self.file_listbox_frame, command=self.file_listbox.yview)
-        self.file_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            self.file_listbox = tk.Listbox(self.file_listbox_frame, bg="#2E2E2E", fg="#FFFFFF", font=("Roboto", 12), selectbackground="#4A4A4A", selectforeground="#FFFFFF")
+            self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.file_listbox.config(yscrollcommand=self.file_scrollbar.set)
+            self.file_scrollbar = tk.Scrollbar(self.file_listbox_frame, command=self.file_listbox.yview)
+            self.file_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.control_frame = ctk.CTkFrame(self.main_window_instance)
-        self.control_frame.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+            self.file_listbox.config(yscrollcommand=self.file_scrollbar.set)
 
-        buttons = [
-            ("Загрузить", self.upload_file),
-            ("Скачать", self.download_file),
-            ("Создать папку", self.create_directory),
-            ("Удалить", self.delete_item),
-            ("Войти", self.enter_directory),
-            ("Назад", self.back_directory),
-            ("Выход", self.exit)
-        ]
+            self.control_frame = ctk.CTkFrame(self.main_window_instance)
+            self.control_frame.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
 
-        for text, command in buttons:
-            btn = ctk.CTkButton(self.control_frame, text=text, command=command)
-            btn.pack(side=tk.LEFT, padx=5)
+            buttons = [
+                ("Загрузить", self.upload_file),
+                ("Скачать", self.download_file),
+                ("Создать папку", self.create_directory),
+                ("Удалить", self.delete_item),
+                ("Войти", self.enter_directory),
+                ("Назад", self.back_directory),
+                ("Выход", self.exit)
+            ]
 
-        self.refresh_list()
-        self.main_window_instance.protocol("WM_DELETE_WINDOW", self.exit)
+            for text, command in buttons:
+                btn = ctk.CTkButton(self.control_frame, text=text, command=command)
+                btn.pack(side=tk.LEFT, padx=5)
+
+            self.refresh_list()
+            self.main_window_instance.protocol("WM_DELETE_WINDOW", self.exit)
+
+        self.main_window_instance.deiconify()  # Показываем основное окно
         self.main_window_instance.mainloop()  # Запускаем главный цикл для основного окна
 
     def refresh_list(self):
@@ -328,9 +334,15 @@ class ModernFTPClient:
 
     def exit(self):
         if self.ftp_connection:
-            self.ftp_connection.quit()
-            logging.info("Соединение с FTP-сервером закрыто")
-        self.main_window_instance.destroy()  # закрываем основное окно
+            try:
+                self.ftp_connection.quit()
+                logging.info("Соединение с FTP-сервером закрыто")
+            except Exception as e:
+                logging.error(f"Ошибка при выходе из FTP: {str(e)}")
+
+        # Скрываем текущее окно
+        self.main_window_instance.withdraw()  # Скрываем основное окно
+        self.login_window()  # Переходим к окну входа
 
 def main():
     app = ModernFTPClient()
