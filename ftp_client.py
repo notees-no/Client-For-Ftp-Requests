@@ -95,16 +95,20 @@ class ModernFTPClient:
         self.main_window_instance.title("FTP Клиент")
         self.main_window_instance.geometry("1200x600")
 
+        # Создаем отдельный фрейм для отображения текущей директории
+        self.path_frame = ctk.CTkFrame(self.main_window_instance)
+        self.path_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(10,0))
+        
+        # Label для отображения текущей директории
+        self.current_dir_label = ctk.CTkLabel(self.path_frame, text=f"Текущая директория: {self.current_directory}")
+        self.current_dir_label.pack(pady=5)
+
         self.dir_frame = ctk.CTkFrame(self.main_window_instance, width=200)
-        self.dir_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.dir_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         self.dir_frame.grid_propagate(False)
 
         self.dir_label = ctk.CTkLabel(self.dir_frame, text="Директории")
         self.dir_label.pack(pady=10)
-
-        # Добавляем новый label для отображения текущей директории
-        self.current_dir_label = ctk.CTkLabel(self.dir_frame, text=f"Текущая директория: {self.current_directory}")
-        self.current_dir_label.pack(pady=10)
 
         # Создаем фрейм для Listbox и Scrollbar
         self.dir_listbox_frame = ctk.CTkFrame(self.dir_frame)
@@ -119,7 +123,7 @@ class ModernFTPClient:
         self.dir_listbox.config(yscrollcommand=self.scrollbar.set)
 
         self.file_frame = ctk.CTkFrame(self.main_window_instance, width=500)
-        self.file_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.file_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
         self.file_frame.grid_propagate(False)
 
         self.file_label = ctk.CTkLabel(self.file_frame, text="Файлы")
@@ -138,7 +142,7 @@ class ModernFTPClient:
         self.file_listbox.config(yscrollcommand=self.file_scrollbar.set)
 
         self.control_frame = ctk.CTkFrame(self.main_window_instance)
-        self.control_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        self.control_frame.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
 
         buttons = [
             ("Загрузить", self.upload_file),
