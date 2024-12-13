@@ -102,6 +102,10 @@ class ModernFTPClient:
         self.dir_label = ctk.CTkLabel(self.dir_frame, text="Директории")
         self.dir_label.pack(pady=10)
 
+        # Добавляем новый label для отображения текущей директории
+        self.current_dir_label = ctk.CTkLabel(self.dir_frame, text=f"Текущая директория: {self.current_directory}")
+        self.current_dir_label.pack(pady=10)
+
         # Создаем фрейм для Listbox и Scrollbar
         self.dir_listbox_frame = ctk.CTkFrame(self.dir_frame)
         self.dir_listbox_frame.pack(fill=tk.BOTH, expand=True)
@@ -172,6 +176,8 @@ class ModernFTPClient:
                     self.ftp_connection.cwd('..')
                 except Exception:
                     self.file_listbox.insert(tk.END, item)  # Добавляем файл в Listbox
+
+            self.current_dir_label.configure(text=f"Текущая директория: {self.current_directory}")  # Обновляем текст
 
         except Exception as e:
             logging.error(f"Не удалось обновить список: {str(e)}")
@@ -264,7 +270,6 @@ class ModernFTPClient:
             try:
                 self.ftp_connection.delete(os.path.join(self.current_directory, selected_file))
                 logging.info(f"Файл {selected_file} успешно удален")
-                # messagebox.showinfo("Успех", "Файл успешно удален")
             except Exception as e:
                 logging.error(f"Не удалось удалить файл: {str(e)}")
                 messagebox.showerror("Ошибка", f"Не удалось удалить файл: {str(e)}")
@@ -275,7 +280,6 @@ class ModernFTPClient:
             try:
                 self.ftp_connection.rmd(os.path.join(self.current_directory, selected_dir))
                 logging.info(f"Директория {selected_dir} успешно удалена")
-                # messagebox.showinfo("Успех", "Директория успешно удалена")
             except Exception as e:
                 logging.error(f"Не удалось удалить директорию: {str(e)}")
                 messagebox.showerror("Ошибка", f"Не удалось удалить директорию: {str(e)}")
@@ -297,6 +301,7 @@ class ModernFTPClient:
             self.ftp_connection.cwd(os.path.join(self.current_directory, selected_dir))
             self.current_directory = os.path.join(self.current_directory, selected_dir)
             self.refresh_list()
+            self.current_dir_label.configure(text=f"Текущая директория: {self.current_directory}")  # Обновляем текст
 
         except Exception as e:
             logging.error(f"Не удалось войти в директорию: {str(e)}")
@@ -311,6 +316,7 @@ class ModernFTPClient:
             self.ftp_connection.cwd('..')
             self.current_directory = os.path.dirname(self.current_directory)
             self.refresh_list()
+            self.current_dir_label.configure(text=f"Текущая директория: {self.current_directory}")  # Обновляем текст
 
         except Exception as e:
             logging.error(f"Не удалось выйти из директории: {str(e)}")
