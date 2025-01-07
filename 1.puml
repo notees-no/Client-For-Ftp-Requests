@@ -1,0 +1,85 @@
+@startuml
+
+class ModernFTPClient {
+    - CONFIG_FILE: String
+    - ftp_connection: FTP
+    - current_directory: String
+    - login_window_instance: CTk
+    - main_window_instance: CTk
+    + __init__()
+    + load_config()
+    + save_config(ip: String, port: String)
+    + login_window()
+    + login()
+    + main_window()
+    + refresh_list()
+    + upload_file()
+    + download_file()
+    + create_directory()
+    + delete_item()
+    + enter_directory()
+    + back_directory()
+    + exit()
+}
+
+class FTP {
+    + connect(ip: String, port: int)
+    + login(user: String, passwd: String)
+    + nlst(directory: String): List<String>
+    + storbinary(command: String, file)
+    + retrbinary(command: String, callback)
+    + mkd(directory: String)
+    + delete(file: String)
+    + rmd(directory: String)
+    + cwd(directory: String)
+    + quit()
+}
+
+class CTk {
+    + __init__()
+    + title(title: String)
+    + geometry(size: String)
+    + deiconify()
+    + withdraw()
+    + mainloop()
+}
+
+class CTkEntry {
+    + __init__(parent: CTk, placeholder_text: String)
+    + get(): String
+    + insert(index: int, text: String)
+}
+
+class CTkLabel {
+    + __init__(parent: CTk, text: String, font: Tuple)
+    + pack(pady: int)
+    + configure(text: String)
+}
+
+class CTkButton {
+    + __init__(parent: CTk, text: String, command: Callable)
+    + pack(pady: int)
+}
+
+class Listbox {
+    + __init__(parent: CTk)
+    + delete(index: int)
+    + insert(index: int, item: String)
+    + get(index: int): String
+    + curselection(): List[int]
+}
+
+class Scrollbar {
+    + __init__(parent: CTk, command: Callable)
+    + pack(side: String, fill: String)
+}
+
+ModernFTPClient --> FTP 
+ModernFTPClient --> CTk 
+ModernFTPClient --> CTkEntry 
+ModernFTPClient --> CTkLabel 
+ModernFTPClient --> CTkButton 
+ModernFTPClient --> Listbox 
+ModernFTPClient --> Scrollbar 
+
+@enduml
